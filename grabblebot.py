@@ -3,16 +3,35 @@ import irc.bot
 import irc.strings
 from irc.client import ip_numstr_to_quad, ip_quad_to_numstr
 
+import grabble
+
 # Unicode magic
 irc.client.ServerConnection.buffer_class = irc.buffer.LenientDecodingLineBuffer
 
 
 
 class GrabbleBot(irc.bot.SingleServerIRCBot):
-    instance = 
+    instance = None
     def __init__(self, channel, nickname, server, port=6667):
-        irc.bot.SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
+        irc.bot.SingleServerIRCBot.__init__(self, [(server, port)], nickname,
+                nickname)
         self.channel = channel
+
+    def msg(self, message):
+        c = self.connection
+        i = 0
+        sent = False
+        while not sent:
+            sent = True
+            try:
+                if i == 0:
+                    c.privmsg(self.channel, message)
+                else:
+                    c.privmsg(self.channel, message[:i])
+                    self.msg(message[i:])
+            except irc.client.MessageTooLong:
+                sent = False
+                i -= 1
 
     def on_nicknameinuse(self, c, e):
         c.nick(c.get_nickname() + "_")
@@ -29,35 +48,56 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
             self.do_command(e, a[1:].strip())
         return
 
+    def print_shit(self):
+        string = "Flipped: " + ' '.join(self.instance.flipped_tiles) + " (" + \
+                str(len(self.instance.tiles)) + " unrevealed tiles remaining)"
+        self.msg(string)
+        string = ""
+        for user, words in self.instance.words.items():
+            string += user + ': ' + ' '.join([x["name"] for x in words]) + "; "
+        self.msg(string)
+        self.msg("Current turn: " + self.instance.current_turn)
+
     def do_command(self, e, cmd):
         nick = e.source.nick
         c = self.connection
 
-        if cmd == "leave":
-            ()
-        elif cmd == "die":
-            self.die()
-        elif cmd == "stats":
-            c.privmsg(self.channel, "a" * 700 + "b")
-            for chname, chobj in self.channels.items():
-                c.notice(nick, "--- Channel statistics ---")
-                c.notice(nick, "Channel: " + chname)
-                users = chobj.users()
-                users.sort()
-                c.notice(nick, "Users: " + ", ".join(users))
-                opers = chobj.opers()
-                opers.sort()
-                c.notice(nick, "Opers: " + ", ".join(opers))
-                voiced = chobj.voiced()
-                voiced.sort()
-                c.notice(nick, "Voiced: " + ", ".join(voiced))
-        elif cmd == "dcc":
-            dcc = self.dcc_listen()
-            c.ctcp("DCC", nick, "CHAT chat %s %d" % (
-                ip_quad_to_numstr(dcc.localaddress),
-                dcc.localport))
+        if cmd == "\\leave":
+            if self.instance:
+                self.instance.remove_player(nick)
+                self.msg("Player " + nick + " removed!")
+            else:
+                self.msg("Game not started! Use \\\\start")
+        elif cmd == "\\start":
+            if not self.instance:
+                self.instance = grabble.Grabble()
+                self.msg("New game started! Type \\\\turn to turn over a tile")
+            else:
+                self.msg("Game in progress! Finish it first!")
+        elif cmd == "\\turn":
+            if self.instance:
+                try:
+                    self.instance.turn_over(nick)
+                    self.print_shit()
+                except grabble.Grabble.NotYourGoError:
+                    self.msg("It's " + self.instance.current_turn +
+                            "'s go, not yours!")
+            else:
+                self.msg("Game not started! Use \\\\start")
         else:
-            c.notice(nick, "Not understood: " + cmd)
+            if self.instance:
+                try:
+                    self.instance.suggest_word(nick, cmd)
+                    self.msg(nick + " won " + cmd + "!")
+                    self.print_shit()
+                except grabble.Grabble.NotAWordError:
+                    self.msg("That's not a word!")
+                except grabble.Grabble.NotFoundError:
+                    self.msg("That's not possible to make (or there's a bug)!")
+                except grabble.Grabble.WordTooShortError:
+                    self.msg("That word is too short. Three or more letters!")
+            else:
+                self.msg("Game not started! Use \\\\start")
 
 def main():
     import sys
