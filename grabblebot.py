@@ -2,6 +2,7 @@
 import irc.bot
 import irc.strings
 from irc.client import ip_numstr_to_quad, ip_quad_to_numstr
+import re
 
 import grabble
 
@@ -49,12 +50,15 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
         return
 
     def print_shit(self):
-        string = "Flipped: " + ' '.join(self.instance.flipped_tiles) + " (" + \
-                str(len(self.instance.tiles)) + " unrevealed tiles remaining)"
+        string = "Flipped: \u0002" + ' '.join(self.instance.flipped_tiles) + \
+                "\u0002 (" + str(len(self.instance.tiles)) + \
+                " unrevealed tiles remaining)"
         self.msg(string)
         string = ""
         for user, words in self.instance.words.items():
-            string += user + ': ' + ' '.join([x["name"] for x in words]) + "; "
+            suser = re.sub(r'^(.)', '\\1\u200b', user)
+            string += suser + ': \u0002' \
+                    + ' '.join([x["name"] for x in words]) + "\u0002; "
         self.msg(string)
         self.msg("Current turn: " + self.instance.current_turn)
 
@@ -134,7 +138,7 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
             if self.instance:
                 try:
                     self.instance.suggest_word(nick, cmd)
-                    self.msg(nick + " won " + cmd + "!")
+                    self.msg(nick + " won \u0002" + cmd + "\u0002!")
                     self.print_shit()
                 except grabble.Grabble.NotAWordError:
                     self.msg(cmd + " is not a word!")
