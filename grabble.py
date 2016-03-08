@@ -31,7 +31,17 @@ class Grabble:
         self.turn_order = []
         self.current_turn = None
 
+    def score(self, player):
+        score = 0
+        if not player in self.words:
+            return 0
+        for word in self.words[player]:
+            score += len(word["name"]) - 2
+        return score
+
     def turn_over(self, name):
+        if not self.tiles:
+            raise self.NoTilesError
         if name in self.turn_order and self.current_turn != name:
             raise self.NotYourGoError
         if not name in self.turn_order:
@@ -54,7 +64,7 @@ class Grabble:
 
     def remove_player(self, name):
         if not name in self.turn_order:
-            pass
+            return
         if self.current_turn == name:
             self.current_turn = self.turn_order[(self.turn_order.index(name)
                 + 1) % len(self.turn_order)]
@@ -62,8 +72,17 @@ class Grabble:
         if not self.turn_order:
             self.current_turn = None
 
+    def end(self, name):
+        self.remove_player(name)
+        if not self.turn_order:
+            return True
+        return False
+
     def is_word(self, word):
-        return True
+        with open('word-list', 'r') as f:
+            if any(word.lower() == x.rstrip('\r\n') for x in f):
+                return True
+            return False
 
     def is_complete_anagram(self, word1, word2):
         return sorted(word1) == sorted(word2)
@@ -95,7 +114,7 @@ class Grabble:
                     if not subanagram:
                         continue
                     return self.find_subanagrams(''.join(missing_letters),
-                            so_far)
+                            so_far + [old_word])
         print("Got here with " + word + " and " + str(so_far))
         return self.scan_tiles(word, so_far)
 
@@ -125,8 +144,10 @@ class Grabble:
                     # that we want, and search for words that contain no more
                     # than them
                     print("Subanagram")
-                    return self.find_subanagrams(''.join(missing_letters),
-                            words_used)
+                    so_far, tiles = self.find_subanagrams(
+                            ''.join(missing_letters), words_used)
+                    if so_far or tiles:
+                        return (so_far, tiles)
         return ([], [])
 
     def scan_tiles(self, word, so_far = []):

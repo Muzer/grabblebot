@@ -73,8 +73,24 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
                 self.instance = grabble.Grabble()
                 self.msg("New game started! Type \\\\turn to turn over a tile")
             else:
-                self.msg("Game in progress! Finish it first!")
-        elif cmd == "\\turn":
+                self.msg("Game in progress! Finish it first with \\\\end!")
+        elif cmd == "\\end":
+            if self.instance:
+                if self.instance.end(nick):
+                    self.msg("Game ended!")
+                    scorestr = "Final Scores: "
+                    for user in self.instance.words:
+                        scorestr += user + ": " + \
+                                str(self.instance.score(user)) + "; "
+                    self.msg(scorestr)
+                    self.instance = None
+                else:
+                    self.msg(nick + " has requested game end. Waiting for all "
+                            "players to concur. Type \\\\end if you haven't "
+                            "already.")
+            else:
+                self.msg("Game already ended! Use \\\\start for a new one.")
+        elif cmd == "\\turn" or cmd == "\\t":
             if self.instance:
                 try:
                     self.instance.turn_over(nick)
@@ -82,8 +98,38 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
                 except grabble.Grabble.NotYourGoError:
                     self.msg("It's " + self.instance.current_turn +
                             "'s go, not yours!")
+                except grabble.Grabble.NoTilesError:
+                    self.msg("There are no tiles left! Type \\\\end if you "
+                            "want it all to end.")
             else:
                 self.msg("Game not started! Use \\\\start")
+        elif cmd == "\\help" or cmd == "\\?":
+            self.msg("Grabble is a word game that involves fast reactions and,"
+                    " on a computer, fast typing! It is first and foremost a "
+                    "real-life game, but this bot attempts to recreate it as "
+                    "best as is possible on IRC. The rules of the game:")
+            self.msg("People take it in turns to turn over face-down Scrabble™"
+                    " tiles on a table. Anyone who sees a word in the face-up "
+                    "tiles at any time may claim it, in which case they own "
+                    "it. However, if anyone at any time spots an anagram of "
+                    "any word someone owns, possibly combined with extra "
+                    "face-up tiles or other existing words, they win it.")
+            self.msg("There is a special rule: you cannot just add 'S' to the "
+                    "end of a word which has already been made with that set "
+                    "of tiles.")
+            self.msg("Scoring: One point for first three letters of each word "
+                    "at the end of the game; one point for each subsequent "
+                    "letter.")
+            self.msg("Commands recognised:")
+            self.msg("\\<any word> — Claim word")
+            self.msg("\\\\start — Start a new game of Grabble")
+            self.msg("\\\\turn or \\\\t — Turn over a tile.")
+            self.msg("\\\\leave — Leave a game. Please do this if you're "
+                    "leaving IRC, else the game will halt without you!")
+            self.msg("\\\\end — Express your desire to end the current game. "
+                    "Everyone in the game must agree with you. Has the "
+                    "side-effect of removing you from the turn order.")
+            self.msg("\\\\help or \\\\? — This text")
         else:
             if self.instance:
                 try:
@@ -91,11 +137,11 @@ class GrabbleBot(irc.bot.SingleServerIRCBot):
                     self.msg(nick + " won " + cmd + "!")
                     self.print_shit()
                 except grabble.Grabble.NotAWordError:
-                    self.msg("That's not a word!")
+                    self.msg(cmd + " is not a word!")
                 except grabble.Grabble.NotFoundError:
-                    self.msg("That's not possible to make (or there's a bug)!")
+                    self.msg(cmd + " is not possible to make!")
                 except grabble.Grabble.WordTooShortError:
-                    self.msg("That word is too short. Three or more letters!")
+                    self.msg(cmd + " is too short. Three or more letters!")
             else:
                 self.msg("Game not started! Use \\\\start")
 
