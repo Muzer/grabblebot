@@ -17,6 +17,8 @@ class Grabble:
         pass
     class WordTooShortError(Exception):
         pass
+    class NoTilesError(Exception):
+        pass
 
     def __init__(self):
         self.tiles = ["@"] * 2 + ["E"] * 12 + ["A"] * 9 + ["I"] * 9 \
