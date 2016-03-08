@@ -163,6 +163,7 @@ class Grabble:
         if not name in self.turn_order:
             if self.current_turn is None:
                 self.turn_order += [name]
+                self.current_turn = name
             else:
                 self.turn_order.insert(self.turn_order.index(
                     self.current_turn), name)
